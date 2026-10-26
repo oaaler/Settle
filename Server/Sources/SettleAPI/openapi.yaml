@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: Settle sleep model API
+  version: 1.0.0
+  description: |
+    Stateless API over the Settle sleep-pressure model (SettleCore). Nothing is stored.
+    Ages are in weeks (0.5–104). Clock times are **hours since midnight** of the sleep day
+    as decimals (6.5 = 06:30) and may exceed 24 for times after the next midnight.
+    Not medical advice.
+servers:
+  - url: /api
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/model:
+    get:
+      operationId: getModel
+      summary: The calibrated age curve the API runs on.
+      responses:
+        "200":
+          description: Model info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelInfo"
+  /v1/simulate/day:
+    get:
+      operationId: simulateDay
+      summary: One settled, free-running day at the given age (04:00 to 04:00).
+      parameters:
+        - name: ageWeeks
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/AgeWeeks"
+      responses:
+        "200":
+          description: The simulated day.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatedDay"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /v1/simulate/sweep:
+    get:
+      operationId: simulateSweep
+      summary: Day summaries for every week of age from 1 to 104.
+      responses:
+        "200":
+          description: The sweep.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sweep"
+  /v1/day-plan:
+    post:
+      operationId: planDay
+      summary: Sleep window and day plan from the morning wake and today's naps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DayPlanRequest"
+      responses:
+        "200":
+          description: The day plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DayPlan"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+
+components:
+  responses:
+    Unprocessable:
+      description: The input is valid JSON but does not describe a possible day.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    AgeWeeks:
+      type: number
+      format: double
+      minimum: 0.5
+      maximum: 104
+
+    ClockHour:
+      type: number
+      format: double
+      description: Hours since midnight of the sleep day (may exceed 24).
+
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    AgeStage:
+      type: string
+      enum: [newborn, emerging, established]
+      description: newborn < 8 wk (no body clock), emerging 8–16 wk, established ≥ 16 wk.
+
+    AgeCurve:
+      type: object
+      required: [tauW52, kW, tauS52, kS, h0, gap, amplitudeMax, phiHour]
+      properties:
+        tauW52: { type: number, format: double, description: Pressure build-up time constant at 52 weeks (h). }
+        kW: { type: number, format: double }
+        tauS52: { type: number, format: double, description: Pressure clearance time constant at 52 weeks (h). }
+        kS: { type: number, format: double }
+        h0: { type: number, format: double }
+        gap: { type: number, format: double }
+        amplitudeMax: { type: number, format: double, description: Full body-clock strength. }
+        phiHour: { type: number, format: double, description: Clock hour where the thresholds peak. }
+
+    ModelInfo:
+      type: object
+      required: [calibration, ageCurve]
+      properties:
+        calibration:
+          type: string
+        ageCurve:
+          $ref: "#/components/schemas/AgeCurve"
+
+    ModelParams:
+      type: object
+      description: The model's settings at one age.
+      required: [tauW, tauS, h0, gap, amplitude, phiHour]
+      properties:
+        tauW: { type: number, format: double }
+        tauS: { type: number, format: double }
+        h0: { type: number, format: double }
+        gap: { type: number, format: double }
+        amplitude: { type: number, format: double }
+        phiHour: { type: number, format: double }
+
+    SleepBout:
+      type: object
+      required: [start, end]
+      properties:
+        start: { $ref: "#/components/schemas/ClockHour" }
+        end: { $ref: "#/components/schemas/ClockHour" }
+
+    PressureSample:
+      type: object
+      required: [hour, pressure, upper, lower, asleep]
+      properties:
+        hour: { $ref: "#/components/schemas/ClockHour" }
+        pressure: { type: number, format: double, description: Sleep pressure 0–1. }
+        upper: { type: number, format: double, description: Fall-asleep threshold. }
+        lower: { type: number, format: double, description: Natural-waking threshold. }
+        asleep: { type: boolean }
+
+    DaySummary:
+      type: object
+      required: [sleepBouts, totalSleepHours, wakeWindows]
+      properties:
+        sleepBouts: { type: integer }
+        totalSleepHours: { type: number, format: double }
+        naps: { type: integer, description: Absent before night sleep consolidates. }
+        nightSleepHours: { type: number, format: double }
+        daySleepHours: { type: number, format: double }
+        wakeWindows:
+          type: array
+          items: { type: number, format: double }
+        morningWake: { $ref: "#/components/schemas/ClockHour" }
+        nightSleepStart: { $ref: "#/components/schemas/ClockHour" }
+
+    SimulatedDay:
+      type: object
+      required: [ageWeeks, stage, params, bouts, samples, summary]
+      properties:
+        ageWeeks: { $ref: "#/components/schemas/AgeWeeks" }
+        stage: { $ref: "#/components/schemas/AgeStage" }
+        params: { $ref: "#/components/schemas/ModelParams" }
+        bouts:
+          type: array
+          items: { $ref: "#/components/schemas/SleepBout" }
+        samples:
+          type: array
+          items: { $ref: "#/components/schemas/PressureSample" }
+        summary: { $ref: "#/components/schemas/DaySummary" }
+
+    SweepPoint:
+      type: object
+      required: [ageWeeks, summary]
+      properties:
+        ageWeeks: { type: integer }
+        summary: { $ref: "#/components/schemas/DaySummary" }
+
+    Sweep:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/SweepPoint" }
+
+    LoggedNap:
+      type: object
+      required: [start]
+      properties:
+        start: { $ref: "#/components/schemas/ClockHour" }
+        end:
+          $ref: "#/components/schemas/ClockHour"
+          description: Omit while the nap is in progress (only the last nap).
+
+    DayPlanRequest:
+      type: object
+      required: [ageWeeks, morningWake, naps, now]
+      properties:
+        ageWeeks: { $ref: "#/components/schemas/AgeWeeks" }
+        morningWake: { $ref: "#/components/schemas/ClockHour" }
+        naps:
+          type: array
+          maxItems: 12
+          items: { $ref: "#/components/schemas/LoggedNap" }
+        now: { $ref: "#/components/schemas/ClockHour" }
+
+    SleepWindow:
+      type: object
+      description: The predicted time range in which the next sleep should start.
+      required: [earliest, target, latest]
+      properties:
+        earliest: { $ref: "#/components/schemas/ClockHour" }
+        target: { $ref: "#/components/schemas/ClockHour" }
+        latest: { $ref: "#/components/schemas/ClockHour" }
+
+    Reason:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [shortLastSleep, longLastSleep, eveningClock]
+        minutes: { type: integer }
+
+    PlannedSleep:
+      type: object
+      required: [kind, start, inProgress]
+      properties:
+        kind:
+          type: string
+          enum: [nap, night]
+        start: { $ref: "#/components/schemas/ClockHour" }
+        end:
+          $ref: "#/components/schemas/ClockHour"
+          description: Natural end predicted by the model; absent for night sleep.
+        inProgress: { type: boolean }
+
+    DayPlan:
+      type: object
+      required: [stage, params, pressureNow, asleepNow, reasons, plan, samples]
+      properties:
+        stage: { $ref: "#/components/schemas/AgeStage" }
+        params: { $ref: "#/components/schemas/ModelParams" }
+        pressureNow: { type: number, format: double }
+        asleepNow: { type: boolean }
+        sleepWindow:
+          $ref: "#/components/schemas/SleepWindow"
+          description: Absent while the baby is asleep.
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+        plan:
+          type: array
+          description: The rest of today — remaining naps, then night sleep.
+          items: { $ref: "#/components/schemas/PlannedSleep" }
+        samples:
+          type: array
+          items: { $ref: "#/components/schemas/PressureSample" }
+
+    Problem:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Design tokens. Chart slots are the validated dataviz palette (first three slots, all-pairs, both modes). */
+:root {
+    color-scheme: light;
+    --surface-0: #f6f5f2;
+    --surface-1: #fcfcfb;
+    --border: #e3e1db;
+    --grid: #ebe9e4;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #6f6e69;
+    --series-1: #2a78d6; /* sleep pressure */
+    --series-2: #eb6834; /* fall-asleep threshold */
+    --series-3: #1baf7a; /* wake-up threshold */
+    --sleep-fill: #dde8f6;
+    --window-fill: #2a78d61f;
+    --accent: #256abf;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        --surface-0: #121211;
+        --surface-1: #1a1a19;
+        --border: #2f2f2c;
+        --grid: #2a2a27;
+        --text-primary: #f0efec;
+        --text-secondary: #c3c2b7;
+        --text-muted: #9a998f;
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --series-3: #199e70;
+        --sleep-fill: #1f2c3d;
+        --window-fill: #3987e529;
+        --accent: #6da7ec;
+    }
+}
+
+@theme inline {
+    --color-surface-0: var(--surface-0);
+    --color-surface-1: var(--surface-1);
+    --color-line: var(--border);
+    --color-ink: var(--text-primary);
+    --color-ink-2: var(--text-secondary);
+    --color-ink-3: var(--text-muted);
+    --color-accent: var(--accent);
+    --font-sans: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+    background: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+input[type="range"] {
+    accent-color: var(--accent);
+}
+
+.tabular {
+    font-variant-numeric: tabular-nums;
+}

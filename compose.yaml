@@ -1,0 +1,19 @@
+# Settle web demo: stateless sleep-model API + static frontend (nginx forwards /api).
+#   podman compose up --build      → http://localhost:8080
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Server/Dockerfile
+    image: ghcr.io/oaaler/settle-api:latest
+    restart: unless-stopped
+    read_only: true
+
+  web:
+    build:
+      context: web
+    image: ghcr.io/oaaler/settle-web:latest
+    depends_on: [api]
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

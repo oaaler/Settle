@@ -31,6 +31,9 @@ jobs:
           - language: python
             build-mode: none
             os: ubuntu-latest
+          - language: javascript-typescript
+            build-mode: none
+            os: ubuntu-latest
           - language: swift
             build-mode: manual
             os: macos-26

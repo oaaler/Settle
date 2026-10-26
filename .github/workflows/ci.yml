@@ -31,6 +31,43 @@ jobs:
       - name: Test
         run: swift test --parallel
 
+  server:
+    name: API server (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.4.1-noble
+    defaults:
+      run:
+        working-directory: Server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint
+        run: swift format lint --strict --recursive --configuration ../.swift-format Sources Tests Package.swift
+      - name: Test
+        run: swift test --parallel
+
+  web:
+    name: Web frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: API types match openapi.yaml
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api-schema.d.ts
+      - run: npm run format:check
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
   ios:
     name: iOS app (build + test)
     runs-on: macos-26
@@ -87,3 +124,45 @@ jobs:
         run: |
           python tools/calibrate/export_fixtures.py
           git diff --exit-code -- Packages/SettleCore/Tests/SettleCoreTests/Fixtures
+
+  images:
+    name: Publish images (GHCR)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [core-linux, server, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: settle-api
+            context: .
+            file: Server/Dockerfile
+          - name: settle-web
+            context: web
+            file: web/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

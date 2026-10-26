@@ -26,3 +26,31 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: deps
+
+  - package-ecosystem: swift
+    directory: /Server
+    schedule:
+      interval: weekly
+    groups:
+      server:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: docker
+    directories: [/Server, /web]
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
