@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: "26.6"
+
+jobs:
+  core-linux:
+    name: SettleCore (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.4.1-noble
+    defaults:
+      run:
+        working-directory: Packages/SettleCore
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint
+        run: swift format lint --strict --recursive --configuration ../../.swift-format Sources Tests
+      - name: Test
+        run: swift test --parallel
+
+  ios:
+    name: iOS app (build + test)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app" && xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: SettleCore tests (macOS)
+        working-directory: Packages/SettleCore
+        run: swift test --parallel
+      - name: Generate project
+        working-directory: App
+        run: xcodegen generate
+      - name: Pick simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          echo "Using simulator $udid"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Build and test
+        working-directory: App
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Settle.xcodeproj -scheme Settle \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath "$RUNNER_TEMP/Settle.xcresult" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xcresult
+          path: ${{ runner.temp }}/Settle.xcresult
+
+  calibration:
+    name: Calibration tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/calibrate/requirements.txt
+      - run: pip install -r tools/calibrate/requirements.txt ruff
+      - name: Lint
+        run: ruff check tools
+      - name: Swift fixtures match curve.json
+        run: |
+          python tools/calibrate/export_fixtures.py
+          git diff --exit-code -- Packages/SettleCore/Tests/SettleCoreTests/Fixtures

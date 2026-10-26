@@ -1,0 +1,32 @@
+# Secrets — never commit
+.gh_token
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+.env
+.env.*
+
+# Xcode / SwiftPM
+build/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+*.ipa
+*.dSYM.zip
+*.dSYM
+# The Xcode project is generated from App/project.yml by XcodeGen
+App/*.xcodeproj/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
