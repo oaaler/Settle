@@ -36,6 +36,13 @@ jobs:
             os: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Before CodeQL init: its build tracer makes Homebrew run under Rosetta, which brew refuses.
+      - name: Prepare (Swift)
+        if: matrix.language == 'swift'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          brew install xcodegen
+          cd App && xcodegen generate
       - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: ${{ matrix.language }}
@@ -43,10 +50,8 @@ jobs:
           queries: security-and-quality
       - name: Build (Swift)
         if: matrix.language == 'swift'
+        working-directory: App
         run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
-          brew install xcodegen
-          cd App && xcodegen generate
           xcodebuild build -project Settle.xcodeproj -scheme Settle \
             -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
