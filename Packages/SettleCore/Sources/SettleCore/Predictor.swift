@@ -11,7 +11,7 @@ public struct SleepRecord: Sendable, Equatable, Codable {
     }
 }
 
-public enum AgeStage: Sendable, Equatable {
+public enum AgeStage: String, Sendable, Equatable, Codable {
     /// 0–8 weeks: no body clock yet; show "time since last sleep" hints only.
     case newborn
     /// 8–16 weeks: body clock emerging.
@@ -34,8 +34,9 @@ public enum PredictionReason: Sendable, Equatable {
     case eveningClock
 }
 
-public struct SleepPrediction: Sendable, Equatable {
-    /// Best estimate of when the next sleep window opens.
+/// The predicted time range in which the next sleep should start.
+public struct SleepWindow: Sendable, Equatable {
+    /// Best estimate of when the window opens.
     public var target: Date
     public var earliest: Date
     public var latest: Date
@@ -51,7 +52,7 @@ public enum PredictionError: Error, Equatable {
     case noCrossing
 }
 
-/// Predicts the next sleep window from logged sleeps.
+/// Predicts the sleep window from logged sleeps (Date-based; used by the iOS app).
 public struct Predictor: Sendable {
     public var curve: AgeCurve
     public var calendar: Calendar
@@ -79,7 +80,7 @@ public struct Predictor: Sendable {
         return p.risen(from: s, hours: hours(from: cursor, to: now))
     }
 
-    public func nextSleep(birthDate: Date, sleeps: [SleepRecord], now: Date) throws -> SleepPrediction {
+    public func sleepWindow(birthDate: Date, sleeps: [SleepRecord], now: Date) throws -> SleepWindow {
         if sleeps.contains(where: { $0.end == nil }) { throw PredictionError.currentlyAsleep }
         let ageWeeks = hours(from: birthDate, to: now) / (24 * 7)
         let p = curve.params(ageWeeks: ageWeeks)
@@ -89,29 +90,16 @@ public struct Predictor: Sendable {
         let early = p.hoursUntilCrossing(from: s, at: h, offset: -windowBand) ?? mid
         let late = p.hoursUntilCrossing(from: s, at: h, offset: windowBand) ?? mid
         let target = now.addingTimeInterval(mid * 3600)
-        return SleepPrediction(
+        let last = sleeps.filter { $0.end != nil }.max { $0.start < $1.start }
+        let lastHours = last.flatMap { record in record.end.map { hours(from: record.start, to: $0) } }
+        return SleepWindow(
             target: target,
             earliest: now.addingTimeInterval(early * 3600),
             latest: now.addingTimeInterval(late * 3600),
             pressure: s,
             stage: AgeStage(ageWeeks: ageWeeks),
-            reasons: reasons(params: p, sleeps: sleeps, targetHour: clockHour(target))
+            reasons: PredictionReason.explain(params: p, lastSleepHours: lastHours, targetHour: h + mid)
         )
-    }
-
-    private func reasons(params p: SleepPressureParams, sleeps: [SleepRecord], targetHour: Double) -> [PredictionReason] {
-        var out: [PredictionReason] = []
-        if let last = sleeps.filter({ $0.end != nil }).max(by: { $0.start < $1.start }), let end = last.end {
-            let minutes = Int(hours(from: last.start, to: end) * 60)
-            if minutes < 40 { out.append(.shortLastSleep(minutes: minutes)) }
-            if minutes > 120 && minutes < 300 { out.append(.longLastSleep(minutes: minutes)) }
-        }
-        // Thresholds peak at phiHour (~6 pm) and then fall, which pulls bedtime in.
-        let falling = sin(2 * .pi * (targetHour - p.phiHour) / 24) > 0
-        if p.amplitude > 0, falling, (17...23).contains(Int(targetHour) % 24) {
-            out.append(.eveningClock)
-        }
-        return out
     }
 
     func clockHour(_ date: Date) -> Double {

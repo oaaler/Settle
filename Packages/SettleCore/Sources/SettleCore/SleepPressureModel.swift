@@ -52,7 +52,7 @@ public struct SleepPressureParams: Sendable, Equatable, Codable {
         s * exp(-hours / tauS)
     }
 
-    /// Hours awake until pressure reaches `threshold(t)`, starting at `clockHour` with pressure `s`.
+    /// Hours awake until pressure reaches the upper threshold, starting at `clockHour` with pressure `s`.
     /// Returns nil if it is not reached within `horizon` hours.
     public func hoursUntilCrossing(
         from s: Double,
@@ -60,16 +60,30 @@ public struct SleepPressureParams: Sendable, Equatable, Codable {
         offset: Double = 0,
         horizon: Double = 30
     ) -> Double? {
-        // Coarse 1-minute scan (matches tools/calibrate/model.py), then bisection refine.
+        firstCrossing(horizon: horizon) { t in
+            risen(from: s, hours: t) >= upper(clockHour + t) + offset
+        }
+    }
+
+    /// Hours asleep until pressure drains to the lower threshold (natural waking).
+    public func hoursUntilWake(from s: Double, at clockHour: Double, horizon: Double = 30) -> Double? {
+        firstCrossing(horizon: horizon) { t in
+            decayed(from: s, hours: t) <= lower(clockHour + t)
+        }
+    }
+
+    /// Coarse 1-minute scan (matches tools/calibrate/model.py), then bisection refine.
+    private func firstCrossing(horizon: Double, crossed: (Double) -> Bool) -> Double? {
         let step = 1.0 / 60
         var previous = 0.0
         var t = step
         while t <= horizon {
-            if risen(from: s, hours: t) >= upper(clockHour + t) + offset {
-                var lo = previous, hi = t
+            if crossed(t) {
+                var lo = previous
+                var hi = t
                 for _ in 0..<20 {
                     let mid = (lo + hi) / 2
-                    if risen(from: s, hours: mid) >= upper(clockHour + mid) + offset { hi = mid } else { lo = mid }
+                    if crossed(mid) { hi = mid } else { lo = mid }
                 }
                 return hi
             }

@@ -28,16 +28,16 @@ struct TodayView: View {
 }
 
 struct TodayModel {
-    var prediction: SleepPrediction?
+    var sleepWindow: SleepWindow?
 
     var windowText: String {
-        guard let p = prediction else { return "Log a sleep to start" }
+        guard let p = sleepWindow else { return "Log a sleep to start" }
         let f = Date.FormatStyle(date: .omitted, time: .shortened)
         return "\(p.earliest.formatted(f)) – \(p.latest.formatted(f))"
     }
 
     var reasonText: String? {
-        switch prediction?.reasons.first {
+        switch sleepWindow?.reasons.first {
         case .shortLastSleep(let minutes): "Short nap (\(minutes)m) → shorter wake window"
         case .longLastSleep(let minutes): "Long nap (\(minutes)m) → longer wake window"
         case .eveningClock: "Evening: body clock is winding down"
@@ -53,7 +53,7 @@ struct TodayModel {
             SleepRecord(start: wake.addingTimeInterval(-11 * 3600), end: wake),
             SleepRecord(start: wake.addingTimeInterval(2 * 3600), end: wake.addingTimeInterval(3.25 * 3600)),
         ]
-        return TodayModel(prediction: try? Predictor().nextSleep(birthDate: birth, sleeps: sleeps, now: now))
+        return TodayModel(sleepWindow: try? Predictor().sleepWindow(birthDate: birth, sleeps: sleeps, now: now))
     }
 }
 

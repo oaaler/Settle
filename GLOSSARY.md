@@ -22,6 +22,10 @@ _Avoid_: age table, wake-window chart, priors
 The predicted time range in which the baby's next sleep (a nap or night sleep) should start.
 _Avoid_: nap window, sweet spot, nap time, next sleep
 
+**Day plan**:
+The predicted rest of today from now: the remaining naps and the start of night sleep.
+_Avoid_: schedule, forecast, timeline
+
 ### Sleep
 
 **Nap**:
