@@ -20,6 +20,8 @@ An iPhone sleep-schedule app for parents of babies aged **0–24 months**. It pr
 | `SPEC.md` | Product spec |
 | `GLOSSARY.md` | The project's terms (sleep window, day plan, ...) |
 | `docs/ci.md` | CI/CD, local setup and TestFlight secrets |
+| `deploy/quadlet` | podman Quadlet units for the demo server |
+| `AGENTS.md` | Handoff for coding agents |
 
 ## Quick start
 

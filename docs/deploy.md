@@ -9,7 +9,11 @@ Two containers, both published to GHCR by CI on every push to `main`:
 
 The browser only ever talks to the web container, so there's one public hostname and no CORS. Nothing is stored: there's no database and no volumes.
 
-## On your server
+## With podman Quadlets (what we use)
+
+Units are in `deploy/quadlet/`. Copy them to `~/.config/containers/systemd/`, run `systemctl --user daemon-reload`, then `systemctl --user start settle-web`. Web listens on `127.0.0.1:8088`. See `AGENTS.md` for auto-update and linger.
+
+## With compose
 
 ```yaml
 # compose.yaml

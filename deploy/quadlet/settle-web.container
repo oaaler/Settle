@@ -1,0 +1,21 @@
+# Static frontend (nginx); forwards /api to settle-api. Put a TLS reverse proxy in front.
+[Unit]
+Description=Settle web demo
+Requires=settle-api.service
+After=settle-api.service
+
+[Container]
+ContainerName=settle-web
+Image=ghcr.io/oaaler/settle-web:latest
+Network=settle.network
+Environment=API_UPSTREAM=http://settle-api:8080
+PublishPort=127.0.0.1:8088:8080
+NoNewPrivileges=true
+DropCapability=ALL
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+# Stateless sleep-model API. Not published: only the web container reaches it.
+[Unit]
+Description=Settle sleep-model API
+
+[Container]
+ContainerName=settle-api
+Image=ghcr.io/oaaler/settle-api:latest
+Network=settle.network
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

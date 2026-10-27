@@ -1,0 +1,3 @@
+# Private network for the Settle demo; containers resolve each other by name.
+[Network]
+NetworkName=settle
