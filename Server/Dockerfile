@@ -1,6 +1,6 @@
 # Build context: repository root (the server depends on Packages/SettleCore).
 #   docker build -f Server/Dockerfile -t settle-api .
-FROM docker.io/library/swift:6.4.1-noble AS build
+FROM docker.io/library/swift:6.4.2-noble AS build
 WORKDIR /build
 COPY Packages/SettleCore Packages/SettleCore
 COPY Server/Package.swift Server/Package.resolved Server/
